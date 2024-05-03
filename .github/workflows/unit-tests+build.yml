@@ -1,11 +1,5 @@
 name: Unit Test and Build
 
-# Defines when the workflow should run
-# on:
-#   pull_request_target:
-#     types:
-#       - closed
-
 on:
   pull_request:
     types: [opened, synchronize]

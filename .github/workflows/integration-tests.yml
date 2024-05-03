@@ -1,10 +1,5 @@
 name: Integration Test
 
-# on:
-#   pull_request_target:
-#     types:
-#       - closed
-
 on:
   pull_request:
     types: [opened, synchronize]
