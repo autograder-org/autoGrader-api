@@ -28,7 +28,7 @@ export const configMiddleware = (app: any) => {
   app.use(cors());
   app.use(cacheControl, methodNotAllowed, badRequestHandler);
   app.use(dbCheck);
-  app.use(basicAuthMiddleware, emailValidityMiddleware);
+  app.use(basicAuthMiddleware);
   RegisterRoutes(app);
 
   app.use(errorHandler);
