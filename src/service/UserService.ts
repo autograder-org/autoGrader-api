@@ -125,7 +125,7 @@ export default class UserService {
 
     await newUser.save();
 
-    await this.publishMessage(newUser.username);
+    // await this.publishMessage(newUser.username);
 
     return newUser;
   }
@@ -290,9 +290,9 @@ export default class UserService {
     logMessage('User updated in the DB', 'UserService.setEmailValidity', `User email validity updated ${user.validity}`, Severity.INFO);
   }
 
-  private async publishMessage(userName: string) {
-    const userNameBuffer = Buffer.from(JSON.stringify({ username: userName }));
-    const userCreatedTopic = EnvConfiguration.USER_CREATED_TOPC;
-    await publish(userNameBuffer, userCreatedTopic);
-  }
+  // private async publishMessage(userName: string) {
+  //   const userNameBuffer = Buffer.from(JSON.stringify({ username: userName }));
+  //   const userCreatedTopic = EnvConfiguration.USER_CREATED_TOPC;
+  //   await publish(userNameBuffer, userCreatedTopic);
+  // }
 }
