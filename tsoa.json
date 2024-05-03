@@ -1,0 +1,33 @@
+{
+  "entryFile": "src/index.ts",
+  "securityDefinitions": {
+    "basicAuth": {
+      "type": "basic",
+      "name": "Authorization",
+      "in": "header"
+    }
+  },
+  "noImplicitAdditionalProperties": "throw-on-extras",
+  "controllerPathGlobs": [
+    "src/controllers/**/*.controller.ts",
+    "src/controllers/*.controller.ts",
+    "src/controllers/v1/*.controller.ts",
+    "src/controllers/v2/*.controller.ts"
+  ],
+  "spec": {
+    "outputDirectory": "src/routes",
+    "specVersion": 3,
+    "spec": {
+      "servers": [
+        {
+          "url": "http://localhost:3000",
+          "description": "Development server"
+        }
+      ]
+    }
+  },
+
+  "routes": {
+    "routesDir": "src/routes"
+  }
+}

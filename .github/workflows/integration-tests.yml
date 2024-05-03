@@ -1,0 +1,48 @@
+name: Integration Test
+
+# on:
+#   pull_request_target:
+#     types:
+#       - closed
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  integration-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '20.2.0'
+
+    - name: Install PostgreSQL
+      run: |
+        sudo apt-get update
+        sudo apt-get -y install postgresql postgresql-contrib
+        sudo systemctl start postgresql
+
+    - name: Configure PostgreSQL
+      run: |
+        sudo -u postgres psql -c "CREATE DATABASE ${{ secrets.POSTGRES_DB_INTEGRATION }};"
+        sudo -u postgres psql -c "CREATE USER ${{ secrets.POSTGRES_USER_INTEGRATION }} WITH ENCRYPTED PASSWORD '${{ secrets.POSTGRES_PASSWORD_INTEGRATION }}';"
+        sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ${{ secrets.POSTGRES_DB_INTEGRATION }} TO ${{ secrets.POSTGRES_USER_INTEGRATION }};"
+
+    - name: Create .env.integration file
+      run: |
+        echo "${{ secrets.ENV_FILE_INTEGRATION }}" | base64 -d > .env.integration
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Generate TSOA
+      run: npm run generate-tsoa
+
+    - name: Run integration tests
+      run: NODE_OPTIONS="--max-old-space-size=1536" npm run integration -- --verbose

@@ -1,0 +1,43 @@
+name: Unit Test and Build
+
+# Defines when the workflow should run
+# on:
+#   pull_request_target:
+#     types:
+#       - closed
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+# Jobs to be executed
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+      with:
+        ref: ${{ github.event.pull_request.head.sha }} # use current PRs code
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '20.2.0' # Specify the Node.js version you need
+
+    - name: Install dependencies
+      run: npm install
+      # Installs npm dependencies
+
+    - name: Generate TSOA
+      run: npm run generate-tsoa
+      # Generates TSOA routes and controllers
+
+    - name: Run tests
+      run: NODE_OPTIONS="--max-old-space-size=1536" npm run test
+      # Executes your tests
+
+    - name: Compile TypeScript
+      run: npm run compile
+      # Runs the TypeScript compiler

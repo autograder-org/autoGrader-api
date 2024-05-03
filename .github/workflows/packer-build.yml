@@ -1,0 +1,269 @@
+name: Packer image build
+on:
+  pull_request_target:
+    types:
+      - closed
+
+# on:
+#   pull_request:
+#     types: [opened, synchronize]
+
+jobs:
+  packer_image_build:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    # Setps to be executed
+    steps:
+    
+    - name: Indicate start of flow
+      run: |
+        echo The PR was merged
+
+    
+    # Run the integration test
+    # ============================
+
+    - name: Starting integration test
+      run: |
+        echo Starting integration test
+
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '20.2.0'
+
+    - name: Install PostgreSQL
+      run: |
+        sudo apt-get update
+        sudo apt-get -y install postgresql postgresql-contrib
+        sudo systemctl start postgresql
+
+    - name: Configure PostgreSQL
+      run: |
+        sudo -u postgres psql -c "CREATE DATABASE ${{ secrets.POSTGRES_DB_INTEGRATION }};"
+        sudo -u postgres psql -c "CREATE USER ${{ secrets.POSTGRES_USER_INTEGRATION }} WITH ENCRYPTED PASSWORD '${{ secrets.POSTGRES_PASSWORD_INTEGRATION }}';"
+        sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ${{ secrets.POSTGRES_DB_INTEGRATION }} TO ${{ secrets.POSTGRES_USER_INTEGRATION }};"
+
+    - name: Create .env.integration file
+      run: |
+        echo "${{ secrets.ENV_FILE_INTEGRATION }}" | base64 -d > .env.integration
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Generate TSOA
+      run: npm run generate-tsoa
+
+    - name: Run integration tests
+      run: NODE_OPTIONS="--max-old-space-size=1536" npm run integration -- --verbose    
+
+    - name: Integration test END
+      run: |
+        echo Integration test completed successfully
+
+    # Building the application artifact
+    # ============================
+      
+    # Runs the TypeScript compiler to generate build files
+    - name: Compile built files
+      run: npm run compile
+
+    # Archiving the build artifact
+    - name: Archive built files
+      run: tar -czvf dist.tar.gz dist/src/* package*
+      # This creates an archive of the dist folder named dist.tar.gz
+
+    - name: Upload built files as artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: built-files-dist-folder
+        path: dist.tar.gz
+
+    
+    # Start packer building process
+    - name: Starting packer build process
+      run: |
+        echo Starting packer build process
+        
+    # Downloading dist.tar.gz to the packer/imageBuilding folder in the pipeline
+    - name: Download built files artifact
+      uses: actions/download-artifact@v2
+      with:
+        name: built-files-dist-folder
+        path: ./packer/imageBuilding/.
+
+    # Start the image building process
+    # ============================
+
+    - name: Setup `packer`
+      uses: hashicorp/setup-packer@main
+      id: setup
+      with:
+        version: "latest"   
+
+    - name: Initialize Packer
+      run: packer init .
+      working-directory: ./packer/imageBuilding
+
+    - name: Decode Variable File
+      run: |
+        echo "${{ secrets.PACKER_VAR_FILE_BASE64 }}" | base64 --decode > variables.auto.pkvars.hcl       
+      working-directory: ./packer/imageBuilding
+
+    - name: Setup Environment Variable
+      run: echo "PKR_VAR_image_name=web-app-image-$(date +%Y%m%d%H%M%S)" >> $GITHUB_ENV  
+      working-directory: ./packer/imageBuilding
+
+    - name: Print Image Name
+      run: echo $PKR_VAR_image_name
+      working-directory: ./packer/imageBuilding
+
+    - name: Inject gcloud service account credentials 
+      run: |
+        echo "${{ secrets.GCP_SA_KEY }}" | base64 --decode > service-account-key.json       
+      working-directory: ./packer/imageBuilding
+
+    - name: Setup GCloud Credentials file name as github env variable
+      run: echo "GOOGLE_APPLICATION_CREDENTIALS=./service-account-key.json" >> $GITHUB_ENV  
+      working-directory: ./packer/imageBuilding    
+
+    # Running Packer Build Command
+    # ============================
+
+    - name: Build Image
+      run: packer build -force -var-file=./variables.auto.pkvars.hcl . 2>&1 | sudo tee ../../output.txt
+      working-directory: ./packer/imageBuilding
+
+    - name: Get Packer Image Name
+      run: |
+        IMAGE_NAME=$(tail -1 output.txt | awk -F ': ' '{print $NF}')
+        echo $IMAGE_NAME > image_name.txt
+
+    - name: Upload Image Name as Artifact for next workflow_run
+      uses: actions/upload-artifact@v2
+      with:
+        name: image-name-artifact
+        path: image_name.txt  
+  
+  deploy:
+    needs: packer_image_build
+    runs-on: ubuntu-latest
+    steps:
+
+    # Initial Set Up setps before building new image template
+    # ============================
+
+    - name: Authorize GCP
+      uses: "google-github-actions/auth@v2"
+      with:
+        credentials_json: ${{ secrets.GCP_CLOUD_USER_SA }}    
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+      with:
+        version: ">= 363.0.0"
+        project_id: ${{ secrets.GCP_CLOUD_USER_SA.project_id }}
+
+    - name: Install jq
+      run:  sudo apt-get install jq    
+
+    - name: Download Image Name from artifact
+      uses: actions/download-artifact@v2
+      with:
+        name: image-name-artifact
+          
+    # Getting Image Name stored as artifact in previous job
+    # ============================
+
+    - name: Set Image Name To Github Variable
+      run: |
+        cat image_name.txt
+        IMAGE_NAME=$(cat image_name.txt)
+        echo "The string value is: $IMAGE_NAME"
+        echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_ENV
+
+    - name: Set environment variables from JSON secret TEMPLATE_VARS_TF
+      env:
+        TEMPLATE_VARS_TF: ${{ secrets.TEMPLATE_VARS_TF }}
+      run: |
+        echo "$TEMPLATE_VARS_TF" | jq -r 'to_entries|map("echo \(.key)=\(.value) >> $GITHUB_ENV")|.[]' | bash
+  
+
+    - name: Generating env variables
+      run: |
+
+        echo Accessing DB Host and Password from google cloud secrets
+        
+        DB_HOST=$(gcloud secrets versions access latest --secret=SQL_DB_HOST)
+        echo "DB_HOST=${DB_HOST}" >> $GITHUB_ENV
+        DB_PASSWORD=$(gcloud secrets versions access latest --secret=SQL_DB_PASSWORD)
+        echo "DB_PASSWORD=${DB_PASSWORD}" >> $GITHUB_ENV
+
+        echo Generating Unique Template Name
+        echo "UNIQUE_TEMPLATE_NAME=${{ env.TEMPLATE_NAME }}-$(date +%s)" >> $GITHUB_ENV
+
+    # Creating new instance template
+    # ============================
+
+    - name: Create a new Instance Template
+      id: create-instance-template
+      run: |
+        gcloud compute instance-templates create ${{ env.UNIQUE_TEMPLATE_NAME }} \
+        --instance-template-region="${{ env.REGION }}" \
+        --machine-type="${{ env.MACHINE_TYPE }}" \
+        --image="${{ env.IMAGE_NAME }}" \
+        --boot-disk-device-name="${{ env.DISK_NAME }}" \
+        --boot-disk-size="${{ env.DISK_SIZE_GB }}GB" \
+        --boot-disk-type="${{ env.DISK_TYPE }}" \
+        --boot-disk-kms-key="projects/${{ env.PROJECT_ID }}/locations/${{ env.REGION }}/keyRings/${{ env.VM_KEY_RING_NAME }}/cryptoKeys/${{ env.VM_KEY_NAME }}" \
+        --metadata=startup-script="#!/bin/bash
+          touch ${{ env.CONFIG_FILE }}
+          : > ${{ env.CONFIG_FILE }}
+          cat > ${{ env.CONFIG_FILE }} <<-INNER_EOF
+          PORT=\"${{ env.APP_PORT }}\"
+          # DATABASE
+          DB_TYPE=\"${{ env.DB_TYPE }}\"
+          DB_HOST=\"${{ env.DB_HOST }}\"
+          DB_PORT=${{ env.DB_PORT }}
+          DB_USERNAME=\"${{ env.DB_USERNAME }}\"
+          DB_PASSWORD=\"${{ env.DB_PASSWORD }}\"
+          DB_NAME=\"${{ env.DB_NAME }}\"
+          # Pub/Sub
+          USER_CREATED_TOPC=\"${{ env.TOPIC_NAME }}\"
+          EMAIL_VALIDITY_MINUTES=\"${{ env.VALIDITY_MINUTES }}\"" \
+        --network-tier="${{ env.NETWORK_TIER }}" \
+        --maintenance-policy="${{ env.MAINTENANCE_POLICY }}" \
+        --provisioning-model="${{ env.PROVISIONING_MODEL }}" \
+        --network="https://www.googleapis.com/compute/v1/projects/${{ env.PROJECT_ID }}/global/networks/${{ env.VPC }}" \
+        --subnet="https://www.googleapis.com/compute/v1/projects/${{ env.PROJECT_ID }}/regions/${{ env.REGION }}/subnetworks/${{ env.SUBNET }}" \
+        --tags="${{ env.TAGS }}" \
+        --service-account="${{ env.COMPUTE_INSTANCE_SERVICE_ACCOUNT }}@${{ env.PROJECT_ID }}.iam.gserviceaccount.com" \
+        --scopes="${{ env.COMPUTE_INSTANCE_SERVICE_ACCOUNT_SCOPES }}"
+
+        gcloud compute instance-templates describe "${{ env.UNIQUE_TEMPLATE_NAME }}" \
+        --region="${{ env.REGION }}"
+
+    - name: Update Managed Instance Group with new template
+      id: update-mig
+      run: |
+        gcloud compute instance-groups managed set-instance-template \
+        ${{ env.MIG_NAME }} \
+        --template=projects/${{ env.PROJECT_ID }}/regions/${{ env.REGION }}/instanceTemplates/${{ env.UNIQUE_TEMPLATE_NAME }} \
+        --region=${{ env.REGION }}  
+
+    - name: Trigger Rolling Update
+      id: rolling-update-trigger
+      run: |
+        gcloud compute instance-groups managed rolling-action start-update \
+        ${{ env.MIG_NAME }} \
+        --version='template=projects/${{ env.PROJECT_ID }}/regions/${{ env.REGION }}/instanceTemplates/${{ env.UNIQUE_TEMPLATE_NAME }}' \
+        --region=${{ env.REGION }} --max-surge=${{ env.MAX_ROLLING_UPDATE_SURGE }}
+
+    - name: Wait for Rolling Update to completed
+      id: wait-for-version-target-reached
+      run: |
+        gcloud compute instance-groups managed wait-until ${{ env.MIG_NAME }} --version-target-reached --region=${{ env.REGION }}

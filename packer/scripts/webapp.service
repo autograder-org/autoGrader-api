@@ -1,0 +1,20 @@
+# place this file in this location in the VM
+# /lib/systemd/system/webapp.service
+
+[Unit]
+Description=Node.js Web Application
+After=network.target
+
+[Service]
+Type=simple
+User=csye6225
+Environment="NODE_ENV=production"
+EnvironmentFile=-/opt/webapp/.env.production
+ExecStartPre=/bin/bash -c 'while [ ! -f /opt/webapp/.env.production ]; do echo "Waiting for env file to exist..."; sleep 1; done'
+ExecStart=/usr/bin/node /opt/webapp/dist/src/index.js
+Restart=always
+LimitCORE=infinity
+
+
+[Install]
+WantedBy=multi-user.target

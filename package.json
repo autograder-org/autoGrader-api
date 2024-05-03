@@ -1,0 +1,49 @@
+{
+  "name": "webapp-fork",
+  "version": "1.0.0",
+  "description": "repository for web applications",
+  "main": "index.js",
+  "scripts": {
+    "integration": "NODE_ENV=integration npx jest --detectOpenHandles --runInBand --testMatch=\"**/integration/**\"",
+    "test": "npx jest --detectOpenHandles --runInBand --testMatch=\"**/unit/**\" ",
+    "dev": "NODE_ENV=development nodemon --exec npx esrun src/index.ts",
+    "clean-up": "rm -rf dist && rm -rf ./src/routes",
+    "generate-tsoa": "tsoa spec-and-routes",
+    "compile": "NODE_ENV=development npx tsc",
+    "build": "npm run clean-up && npm run generate-tsoa && npm run test && npm run compile",
+    "serve": "NODE_ENV=production node dist/src/index.js",
+    "demo": "npm run build && npm run serve"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jest": "^29.5.12",
+    "@types/pg": "^8.11.0",
+    "@types/supertest": "^6.0.2",
+    "@types/swagger-ui-express": "^4.1.6",
+    "dotenv": "^16.4.1",
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.3",
+    "supertest": "^6.3.4",
+    "ts-jest": "^29.1.2",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "@google-cloud/pubsub": "^4.3.3",
+    "@tsoa/runtime": "^6.0.0",
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "pg": "^8.11.3",
+    "swagger-ui-express": "^5.0.0",
+    "tsoa": "^6.0.1",
+    "typeorm": "^0.3.20",
+    "winston": "^3.11.0"
+  }
+}
