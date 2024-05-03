@@ -35,6 +35,17 @@ The project incorporates continuous integration and continuous deployment (CI/CD
 ## Installation and Running the Application
 
 <!-- Instructions here detail how to set up your local development environment, configure necessary cloud services, and deploy the application both locally and on cloud platforms. -->
+- **Set up Node and npm**
+- **Install Dependencies** : `npm i`
+- **Set up Local Instance of PostgreSQL** : 
+    - Copy the file `.env.sample` to `.env.development`
+    - Set up local instance of PostgreSQL 
+    - Run the following commands to set up the required users and tables within the Database Instance        
+      1. `CREATE DATABASE autograder;`
+      2.   `CREATE USER autograder WITH SUPERUSER ENCRYPTED PASSWORD 'autograder';`
+- **Build the project and run tests**: `npm run build`
+- **Run the api server** : `npm run dev`
+- **Access API Specs** : Open browser and visit `http://localhost:3000/api-docs/` to have a look at the API end points
 
 ## Contributing
 
