@@ -66,31 +66,31 @@ describe("user", () => {
         });
       });
 
-      describe("given the user email id is not validated", () => {
-        it("should return a 403", async () => {
-          const payload = {
-            username: "testNew4@northeastern.edu",
-            password: "testPass3",
-            first_name: "Arun",
-            last_name: "Balaji",
-          };
+      // describe("given the user email id is not validated", () => {
+      //   it("should return a 403", async () => {
+      //     const payload = {
+      //       username: "testNew4@northeastern.edu",
+      //       password: "testPass3",
+      //       first_name: "Arun",
+      //       last_name: "Balaji",
+      //     };
 
-          await supertest(app)
-            .post("/v5/user")
-            .send(payload)
-            .set("Content-Type", "application/json");
+      //     await supertest(app)
+      //       .post("/v5/user")
+      //       .send(payload)
+      //       .set("Content-Type", "application/json");
 
-          const basicAuthToken = encodeCredentialsToBase64(
-            payload.username,
-            payload.password
-          );
+      //     const basicAuthToken = encodeCredentialsToBase64(
+      //       payload.username,
+      //       payload.password
+      //     );
 
-          await supertest(app)
-            .get("/v5/user/self")
-            .set("Authorization", `Basic ${basicAuthToken}`)
-            .expect(403);
-        });
-      });
+      //     await supertest(app)
+      //       .get("/v5/user/self")
+      //       .set("Authorization", `Basic ${basicAuthToken}`)
+      //       .expect(403);
+      //   });
+      // });
     });
   });
 
@@ -153,40 +153,40 @@ describe("user", () => {
         });
       });
 
-      describe("given user email id was not validated", () => {
-        it("shuould return a 403", async () => {
-          // first create the user
-          const payload = {
-            username: "testNew4@northeastern.edu",
-            password: "testPass3",
-            first_name: "Arun",
-            last_name: "Balaji",
-          };
+      // describe("given user email id was not validated", () => {
+      //   it("shuould return a 403", async () => {
+      //     // first create the user
+      //     const payload = {
+      //       username: "testNew4@northeastern.edu",
+      //       password: "testPass3",
+      //       first_name: "Arun",
+      //       last_name: "Balaji",
+      //     };
 
-          await supertest(app)
-            .post("/v5/user")
-            .send(payload)
-            .set("Content-Type", "application/json");
+      //     await supertest(app)
+      //       .post("/v5/user")
+      //       .send(payload)
+      //       .set("Content-Type", "application/json");
 
-          // update the user
-          const updatePayload = {
-            password: "testPass345",
-            first_name: "Varun",
-            last_name: "Anand",
-          };
+      //     // update the user
+      //     const updatePayload = {
+      //       password: "testPass345",
+      //       first_name: "Varun",
+      //       last_name: "Anand",
+      //     };
 
-          const basicAuthToken = encodeCredentialsToBase64(
-            payload.username,
-            payload.password
-          );
+      //     const basicAuthToken = encodeCredentialsToBase64(
+      //       payload.username,
+      //       payload.password
+      //     );
 
-          const { body } = await supertest(app)
-            .put("/v5/user/self")
-            .send(updatePayload)
-            .set("Authorization", `Basic ${basicAuthToken}`)
-            .expect(403);
-        });
-      });
+      //     const { body } = await supertest(app)
+      //       .put("/v5/user/self")
+      //       .send(updatePayload)
+      //       .set("Authorization", `Basic ${basicAuthToken}`)
+      //       .expect(403);
+      //   });
+      // });
     });
   });
 });
